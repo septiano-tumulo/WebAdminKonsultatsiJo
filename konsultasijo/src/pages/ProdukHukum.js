@@ -1,17 +1,65 @@
 import React,{useState,useRef,useEffect} from "react";
 import Navigation from "../components/Navigation";
+import FocusTrap from 'focus-trap-react';
 import { v4 as uuidv4 } from 'uuid';
 import '../assets/gap.css';
 import ImgDeleteUser from '../assets/deleteUser.svg';
-import { getDatabase, ref as databaseRef,set,onValue,remove } from "firebase/database";
+import Edit from '../assets/pencil.svg';
+import { getDatabase, ref as databaseRef,set,onValue,remove ,update} from "firebase/database";
 import { getStorage, ref,uploadBytesResumable,getDownloadURL } from "firebase/storage";
 import app from '../configs/firebase'
 import moment from 'moment-timezone';
+import { Link } from "react-router-dom";
 
 const split={
     display: 'flex',
     flexDirection: 'row',
 }
+
+const Form = ({ item }) => {
+  const judul = useRef('')
+  const tahun = useRef('')
+  const nomor = useRef('')
+  const jenis = useRef('')
+
+  const updateNews = (item)=>{
+    const db = getDatabase(app)
+    const dbRef = databaseRef(db,`phukum/${item.id}`);
+    update(dbRef,{
+      judul:judul.current.value,
+      tahun:tahun.current.value,
+      nomor:nomor.current.value,
+      jenis:jenis.current.value,
+      timeStamps:moment().format('')
+    }).then(()=>console.log('success'))
+  }
+
+  return (
+    <form onSubmit={()=>updateNews(item)}>
+      <div className="form-group">
+        <label htmlFor="name">Tahun</label>
+        <input ref={tahun} className="form-control" id="tahun" placeholder={item.tahun}/>
+      </div>
+      <div className="form-group">
+        <label htmlFor="name">Nomor</label>
+        <input ref={nomor} className="form-control" id="nomor" placeholder={item.nomor}/>
+      </div>
+      <div className="form-group">
+        <label htmlFor="name">Judul</label>
+        <input ref={judul} className="form-control" id="judul" placeholder={item.judul}/>
+      </div>
+      <div className="form-group">
+        <label htmlFor="name">Jenis</label>
+        <input ref={jenis} className="form-control" id="jenis" placeholder={item.jenis}/>
+      </div>
+      <div className="form-group">
+        <button className="submitButton" type="submit">
+          Submit
+        </button>
+      </div>
+    </form>
+  );
+};
 
 const ProdukHukum = () => {
   const judul = useRef('')
@@ -22,6 +70,31 @@ const ProdukHukum = () => {
   const [percent, setPercent] = useState(0);
   const [phukum, setPHukum] = useState([]);
   const [search,setSearch] = useState('')
+  const [showModal,setShowModal] = useState(false)
+  const [items,setItems] = useState()
+
+  const showModals = (item)=>{
+    setShowModal(true)
+    setItems(item)
+  }
+
+  const closeModal = ()=>{
+    setShowModal(false)
+  }
+
+  const onKeyDown = (event) => {
+    if (event.keyCode === 27) {
+      closeModal();
+    }
+  };
+
+  const onClickOutside=(e)=>{
+    if(e.target.tagName === "ASIDE") {
+      closeModal()
+    } else {
+      return
+    }
+  }
 
   const searchItem = (value,query)=>{
     const keys = ['tahun','nomor', 'judul','jenis']
@@ -105,9 +178,22 @@ const ProdukHukum = () => {
   const deletePhukum = (item)=> {
     const db = getDatabase(app)
     const dbRef = databaseRef(db,`phukum/${item.id}`);
-    remove(dbRef)
-    .then(alert("Product deleted."))
-    .catch((error) => console.error(false));
+    if (window.confirm("Setuju untuk menghapus?")) {
+      remove(dbRef)
+      .then(alert("Product deleted."))
+      .catch((error) => console.error(false));
+      const datas={
+        id:item.id,
+        judul:item.judul,
+        tahun:item.tahun,
+        nomor:item.nomor,
+        jenis:item.jenis,
+        file:item.file,
+        timeStamps:item.timeStamps
+      }
+      const db = getDatabase(app)
+      set(databaseRef(db, 'ProductArchives/'+item.id), datas);
+    }
   }
   useEffect(()=>{
     getUsers()
@@ -146,7 +232,12 @@ const ProdukHukum = () => {
             <button type="submit" class="btn btn-danger mb-3 form-control" onClick={submit}>Posting</button>
           </div>
 
-          <p>{percent} % done</p>
+          <div>
+            <p>{percent} % done</p>
+            <Link to="/archived" class="col-auto">
+              <button type="submit" class="btn btn-primary mb-3" onClick={submit}>See Archived PH</button>
+            </Link>
+          </div>
 
           <div class="input-group flex-nowrap mb-2">
             <input type="text" class="form-control" placeholder="Cari disini" value={search} onChange={(e)=>setSearch(e.target.value)}/>
@@ -166,18 +257,48 @@ const ProdukHukum = () => {
               <tbody>
 
                   {searchData.map((item,index)=>(
-                    <tr key={index}>
+                    <tr key={item.id}>
                       <td>{item.tahun}</td>
                       <td>{item.nomor}</td>
                       <td>{item.judul}</td>
                       <td>{item.jenis}</td>
                       <td>PDF</td>
                       <td type="button" onClick={()=>deletePhukum(item)}><img src={ImgDeleteUser} alt="DeleteAccount" /></td>
+                      <td type="button" onClick={()=>showModals(item)}><img src={Edit} alt="UpdateAccount" /></td>
                     </tr>
                   ))}
 
               </tbody>
           </table>
+          {showModal===true ?
+            <FocusTrap>
+              <aside
+                tag="aside"
+                role="dialog"
+                tabIndex="-1"
+                aria-modal="true"
+                className="modal-cover"
+                onKeyDown={onKeyDown}
+                onClick={onClickOutside}
+              >
+                <button
+                  aria-label="Close Modal"
+                  aria-labelledby="close-modal"
+                  className="_modal-close"
+                  onClick={closeModal}
+                >
+                  <span id="close-modal" className="_hide-visual">
+                    Close
+                  </span>
+                  <svg className="_modal-close-icon" viewBox="0 0 40 40">
+                    <path d="M 10,10 L 30,30 M 30,10 L 10,30" />
+                  </svg>
+                </button>
+                <div className="modal-area">
+                  <Form item={items}/>
+                </div>
+              </aside>
+            </FocusTrap> : null}
           </div>
       </div>
   )

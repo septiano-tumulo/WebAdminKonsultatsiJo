@@ -1,9 +1,11 @@
 import React,{useRef,useState,useEffect} from "react";
+import FocusTrap from 'focus-trap-react';
 import Navigation from "../components/Navigation";
 import '../assets/news.css';
 import ImgDeleteUser from '../assets/deleteUser.svg';
+import Edit from '../assets/pencil.svg';
 import { v4 as uuidv4 } from 'uuid';
-import { getDatabase, ref as databaseRef,set,onValue,remove} from "firebase/database";
+import { getDatabase, ref as databaseRef,set,onValue,remove ,update} from "firebase/database";
 import { getStorage, ref,uploadBytesResumable,getDownloadURL } from "firebase/storage";
 import app from '../configs/firebase'
 import moment from 'moment-timezone';
@@ -12,12 +14,75 @@ const split={
     display: 'flex',
     flexDirection: 'row',
 }
+
+const Form = ({ item }) => {
+  const judul = useRef('')
+  const link = useRef('')
+
+  const updateNews = (item)=>{
+    const db = getDatabase(app)
+    const dbRef = databaseRef(db,`news/${item.id}`);
+    update(dbRef,{
+      judul:judul.current.value,
+      link:link.current.value
+    }).then(()=>console.log('success'))
+  }
+
+  return (
+    <form onSubmit={()=>updateNews(item)}>
+      <div className="form-group">
+        <label htmlFor="name">Judul</label>
+        <input ref={judul} className="form-control" id="judul" placeholder="Terjadi kecelakaan di benua afrika"/>
+      </div>
+      <div className="form-group">
+        <label htmlFor="email">Link</label>
+        <input
+          type="text" ref={link}
+          className="form-control"
+          id="link"
+          placeholder="https://ec.europa.eu/commission/presscorner/detail/en/MEX_22_7152"
+        />
+      </div>
+      <div className="form-group">
+        <button className="submitButton" type="submit">
+          Submit
+        </button>
+      </div>
+    </form>
+  );
+};
+
 const News = () => {
   const judul = useRef('')
   const link = useRef('')
   const [file,setFile] = useState(null)
   const [percent, setPercent] = useState(0);
   const [news,setNews] = useState([])
+  const [items,setItems] = useState()
+  const [showModal,setShowModal] = useState(false)
+
+  const showModals = (item)=>{
+    setShowModal(true)
+    setItems(item)
+  }
+
+  const closeModal = ()=>{
+    setShowModal(false)
+  }
+
+  const onKeyDown = (event) => {
+    if (event.keyCode === 27) {
+      closeModal();
+    }
+  };
+
+  const onClickOutside=(e)=>{
+    if(e.target.tagName === "ASIDE") {
+      closeModal()
+    } else {
+      return
+    }
+  }
 
   const writeUserData = ()=>{
     const storage = getStorage(app)
@@ -89,9 +154,11 @@ const News = () => {
   const deleteNews = async(item)=> {
     const db = getDatabase(app)
     const dbRef = await databaseRef(db,`news/${item.id}`);
-    remove(dbRef)
-    .then(console.log("news deleted."))
-    .catch((error) => console.error(false));
+    if(window.confirm("Setuju untuk menghapus?")){
+      remove(dbRef)
+      .then(console.log("news deleted."))
+      .catch((error) => console.error(false));
+    }
   }
 
   useEffect(()=>{
@@ -123,20 +190,50 @@ const News = () => {
           </div>
           <p>{percent} % done</p>
           <div className="wrapper">
-              {news.map((item,index)=>(
-                <div key={index} className="newsWrapper" style={{display: 'flex'}}>
-                    <div>
-                      <p>{item.judul}</p>
-                      <a href={item.link} target="_blank" rel="noreferrer">Link berita</a>
-                    </div>
-                    <a href={item.image} rel="noopener noreferrer" target="_blank">
-                      <img  src={item.image} alt="News" className="imgberita" target="_blank"/>
-                    </a>
-                    <img className="imgbutton" style={{}} type="button" onClick={()=>deleteNews(item)} src={ImgDeleteUser} alt="DeleteAccount" />
+              {news.map((item)=>(
+                <div key={item.id} className="newsWrapper" style={{display: 'flex'}}>
+                  <div>
+                    <p>{item.judul}</p>
+                    <a href={item.link} target="_blank" rel="noreferrer">Link berita</a>
+                  </div>
+                  <a href={item.image} rel="noopener noreferrer" target="_blank">
+                    <img  src={item.image} alt="News" className="imgberita" target="_blank"/>
+                  </a>
+                  <img className="imgbutton" type="button" onClick={()=>deleteNews(item)} src={ImgDeleteUser} alt="DeleteNews" />
+                  <img className="imgbutton" type="button" onClick={()=>showModals(item)} src={Edit} alt="EditNews" />
                 </div>
               ))}
           </div>
         </div>
+        {showModal===true ?
+          <FocusTrap>
+            <aside
+              tag="aside"
+              role="dialog"
+              tabIndex="-1"
+              aria-modal="true"
+              className="modal-cover"
+              onKeyDown={onKeyDown}
+              onClick={onClickOutside}
+            >
+              <button
+                aria-label="Close Modal"
+                aria-labelledby="close-modal"
+                className="_modal-close"
+                onClick={closeModal}
+              >
+                <span id="close-modal" className="_hide-visual">
+                  Close
+                </span>
+                <svg className="_modal-close-icon" viewBox="0 0 40 40">
+                  <path d="M 10,10 L 30,30 M 30,10 L 10,30" />
+                </svg>
+              </button>
+              <div className="modal-area">
+                <Form item={items}/>
+              </div>
+            </aside>
+          </FocusTrap> : null}
       </div>
     );
 }

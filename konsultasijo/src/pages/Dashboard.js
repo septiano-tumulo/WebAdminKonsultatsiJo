@@ -36,10 +36,8 @@ const Dashboard = () => {
 
   const labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-  // const getProperty = categories!== null && categories!== undefined ? Object.getOwnPropertyNames(categories?.years['2022'].months) : ''
   // console.log(getDatas);
-  console.log(categories);
-  const val = 0
+  // console.log(categories)  // const val = 0
   // for (var key in getDatas) {
   //   console.log(getDatas[key].value);
   // }
@@ -48,7 +46,7 @@ const Dashboard = () => {
   //
   //   return find
   // })
-  console.log(val);
+  // console.log(val);
   const data = {
     labels,
     datasets: [
@@ -73,20 +71,26 @@ const Dashboard = () => {
       }
     ]
   }
+
   const getCategories = async()=>{
-    const db = await getDatabase(app)
-    const dbRef = await ref(db,'/categoriesDatas');
-    await onValue(dbRef, (snapshot) => {
-      setCategories((state) => [snapshot.val(),...state]);
-    });
-  }
-  useEffect(()=>{
-    let mounted = true
-    if (mounted) {
-      getCategories()
+    try {
+      const db = await getDatabase(app)
+      const dbRef = await ref(db,'/categoriesDatas');
+      await onValue(dbRef,(snapshot) => {
+       setCategories((state) => [snapshot.val()]);
+      });
+    } catch (e) {
+      console.log(e);
     }
-    return ()=>mounted=false
+  }
+
+  useEffect(()=>{
+      getCategories()
   },[])
+
+  // const getProperty = categories!== null || categories!==[] || categories!== undefined ? Object.getOwnPropertyNames(categories?.years['2022'].months) : ''
+
+  console.log(categories);
 
     return(
       <div style={split}>
